@@ -1,63 +1,29 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Jul 19 15:32:51 2022
-
-@author: 47176
-"""
-# Environment
-
-import requests
-import pandas as pd
+from PIL import Image
+import pickle
 import numpy as np
-from requests.exceptions import RequestException
-from pyquery import PyQuery as pq
-import json
-import time
-from multiprocessing import Pool
-import re
+
+def pic2vec(image):
+    """
+    将Image读取的图片转换为一维数组
+
+    Parameters
+    ----------
+    image : PIL.JpegImagePlugin.JpegImageFile
+        DESCRIPTION. 读取的图片
+
+    Returns
+    -------
+    res: 一维数组
+
+    """
+    return np.array(image).reshape(1, -1)
 
 
-#%% Functions
-# Init Func
-def get_one_page_html(url):
-    """ 获取网站每一页的html """
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/85.0.4183.121 Safari/537.36"
-        }
-    try:
-        response = requests.get(url, headers=headers)
-        if response.status_code == 200:
-            return response.text
-        else:
-            return None
-    except RequestException:
-        return None
-
-# Self Define Func
-def get_house_base_info(html):
-    """ 根据首页返回房源的基础信息和网页ID """
-    
+pic = r'D:\Learn\学习入口\大项目\爬他妈的\住房问题\自如\train\4.jpg'
+t = Image.open(pic)
 
 
-#%%
+with open(r'D:\Learn\学习入口\大项目\爬他妈的\住房问题\自如\train\LR.pkl', 'rb') as f:
+    model = pickle.load(f)
 
-
-
-#%% Test
-
-url = 'https://sh.ziroom.com/z/z2-u14%7C13-r0/?p=a1|2|3&cp=0TO7000&isOpen=1'
-
-t = get_one_page_html(url)
-
-
-
-
-
-
-
-
-
-
-
-
+a = model.predict(pic2vec(t))

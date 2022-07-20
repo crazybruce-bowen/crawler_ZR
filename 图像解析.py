@@ -21,11 +21,11 @@ image = Image.open(image_file)
 images = []
 for i in range(10):
     im = image.crop((image_width*i, 0, image_width *
-                     (i+1), image.size[1])).convert('L')
+                     (i+1), image.size[1]))
     images.append(im)
 
 model_path = r'D:\Learn\学习入口\大项目\爬他妈的\住房问题\自如\示例代码\train\LR.pickle'    
-
+#%%
 
 def thresholding(image):
     predicted = KMeans(n_clusters=2, random_state=9).fit_predict(

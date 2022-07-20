@@ -6,6 +6,10 @@ from skimage import morphology
 from sklearn.cluster import KMeans
 from sklearn.linear_model import LogisticRegression as LR
 import pickle
+import os
+
+path = r'D:\Learn\学习入口\大项目\爬他妈的\住房问题\自如\示例代码'
+os.chdir(path)
 
 model_path = 'train/LR.pickle'
 
