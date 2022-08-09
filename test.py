@@ -2,6 +2,7 @@ from PIL import Image
 import pickle
 import numpy as np
 
+
 def pic2vec(image):
     """
     将Image读取的图片转换为一维数组
