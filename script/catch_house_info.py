@@ -11,6 +11,7 @@ import numpy as np
 import time
 from script.io_service import save_info_to_local, save_info_to_mongodb
 from multiprocessing import Process, Pool
+import requests
 
 
 class RoomInfoCatching:
@@ -126,15 +127,54 @@ class RoomInfoCatching:
             print('== 完成 {} 区域'.format(i['area']))
         return room_info_total
 
+    def get_price(self, s) -> int:
+        """
+        根据图片的字符信息（price_info 字段）生成数值型价格
+
+        :param s: price_info 内容
+        :return:
+        """
+        from io import BytesIO
+        from PIL import Image
+
+        # 拆分price_info内容为list
+        p_list = s.split('||')
+
+        # 计算第N位数字
+        num_str = str()
+
+        for i in p_list:
+            ## 识别该位数字的url
+            i_url = 'https:' + re.findall('url\((.*)\)', i)[0]
+            ## 根据url获取图片
+            img = Image.open(BytesIO(requests.get(i_url).content))
+            ## 图片分割并识别各个顺序位置的值
+            p_str = '1234567890'  # TODO 此处更换为正常数据
+            ## 识别该位数字在图片中px位置，并转换为顺序位置
+            px = re.findall('background-position: (.*)', i)[0]
+            ### px转换position字典 人工学习结果
+            px2pos = {'-0px': 0, '-21.4px': 1, '-42.8px': 2, '-64.2px': 3, '-85.6px': 4, '107px': 5,
+                      '-128.4px': 6, '-149.8px': 7, '-171.2px': 8, '-192.6px': 9}
+            pos = px2pos.get(px)
+            ## 生成该位数字的值
+            num = p_str[pos]
+            num_str += num
+        # 拼接各位数字生成最终价格
+        price = int(num_str)
+        return price
 
 
+# 主程序
+if __name__ == '__main__':
+    t = RoomInfoCatching()
+    res = t.get_room_info_total()
 #%%
-t = RoomInfoCatching()
+# t = RoomInfoCatching()
 # url = 'https://sh.ziroom.com/z/z2-d310106-r0-p1/?cp=4000TO8000'
 # # html = get_one_page_html(url)
 # # doc = pq(html)
 # res = t.get_room_info_page(url)
-a = t.generate_area_urls()
+# a = t.generate_area_urls()
 # res = t.get_room_info_total()
 #%%
 # url = 'https://sh.ziroom.com/x/745530151.html'
@@ -164,7 +204,40 @@ a = t.generate_area_urls()
 # locations = b('div.desc>div.location').text()
 # price_info = [num.attr('style') for num in b('div.price span.num').items()]
 # tags = [tag.text() for tag in b('div.tag span').items()]
+#%%
+b = img.crop((0, 0, 30, 28))
+
+from sklearn.cluster import KMeans
+from skimage import morphology
+import pickle
+
+model_path = r'D:\Learn\学习入口\大项目\爬他妈的\住房问题\自如\data\LR_0817.pickle'
+with open(model_path, 'rb') as fr:
+    model = pickle.load(fr)
+    
+
+def convert_PIL(image):
+    image = Image.fromarray(image).convert('L')
+    return image
 
 
+def thresholding(image):
+    predicted = KMeans(n_clusters=2, random_state=9).fit_predict(
+        image.reshape((image.shape[0]*image.shape[1], 1)))
+    image = predicted.reshape((image.shape[0], image.shape[1]))
+    return image
+
+
+def thin(image):
+    image = thresholding(np.array(image))
+    thin_image = morphology.skeletonize(image)
+    return thin_image
+
+
+def predict(model, image):
+    image = thin(image)
+    return model.predict(image.reshape((1, -1)))[0]    
+
+number = predict(model, b.convert('L'))
 
 

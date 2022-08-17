@@ -15,7 +15,7 @@ for i in range(10):
     images.append(im_grey)
 
 # 输出训练图片数字
-train_pic_path = r'D:\Learn\学习入口\大项目\爬他妈的\住房问题\自如\train'
+train_pic_path = r'D:\Learn\学习入口\大项目\爬他妈的\住房问题\自如\data'
 for n, i in enumerate(images):
     i.save(os.path.join(train_pic_path, '{}.jpg'.format(n)))
     
