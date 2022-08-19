@@ -7,11 +7,13 @@ from script.html_service import get_one_page_html
 from pyquery import PyQuery as pq
 import re
 from script.utils import print_time
+from script.orc_service import PricePredict
 import numpy as np
 import time
 from script.io_service import save_info_to_local, save_info_to_mongodb
 from multiprocessing import Process, Pool
 import requests
+import pickle
 
 
 class RoomInfoCatching:
@@ -19,6 +21,7 @@ class RoomInfoCatching:
         self.url_base = 'https://sh.ziroom.com/'
         self.url_selectoin = 'https://sh.ziroom.com/z/z2-r0/?cp=4000TO8000'  # 4k-8k TODO 改成动态生成
         self.urls_area = None
+        self.url_pic = dict()
 
     def generate_area_urls(self):
         doc = pq(get_one_page_html(self.url_selectoin))
@@ -92,7 +95,6 @@ class RoomInfoCatching:
             locations = i('div.desc>div.location').text()
             price_info = '||'.join([num.attr('style') for num in i('div.price span.num').items()])  # ||分割改list为str
             tags = '||'.join([tag.text() for tag in i('div.tag span').items()])  # ||分割改list为str
-
             dict_info = {'name': name, 'room_url': url, 'area_str': area_str, 'price_info': price_info,
                          'area': area, 'room_types': types, 'locations': locations, 'tags': tags, 'floor': floor,
                          }
@@ -126,12 +128,15 @@ class RoomInfoCatching:
             room_info_total += self.get_room_info_by_area(i['area'])
             print('== 完成 {} 区域'.format(i['area']))
         return room_info_total
-
-    def get_price(self, s) -> int:
+    
+    @print_time
+    def get_price(self, s, model_path) -> int:
         """
         根据图片的字符信息（price_info 字段）生成数值型价格
 
         :param s: price_info 内容
+        :param model_path: 模型文件路径
+
         :return:
         """
         from io import BytesIO
@@ -142,18 +147,29 @@ class RoomInfoCatching:
 
         # 计算第N位数字
         num_str = str()
+        with open(model_path, 'rb') as f:
+            model = pickle.load(f)
 
         for i in p_list:
-            ## 识别该位数字的url
+            ## 识别该位数字图片的url
             i_url = 'https:' + re.findall('url\((.*)\)', i)[0]
-            ## 根据url获取图片
-            img = Image.open(BytesIO(requests.get(i_url).content))
+            if i_url not in self.url_pic:
+                ## 根据url获取图片
+                img = Image.open(BytesIO(requests.get(i_url).content))
+                self.url_pic[i_url] = img
+            else:
+                img = self.url_pic[i_url]
             ## 图片分割并识别各个顺序位置的值
-            p_str = '1234567890'  # TODO 此处更换为正常数据
+            pre_obj = PricePredict(img, model)
+            p_str = ''
+            for j in range(10):
+                num_pre = pre_obj.predict(j)
+                p_str += str(num_pre)
+            # p_str = '1234567890'  # TODO 此处更换为正常数据
             ## 识别该位数字在图片中px位置，并转换为顺序位置
             px = re.findall('background-position: (.*)', i)[0]
             ### px转换position字典 人工学习结果
-            px2pos = {'-0px': 0, '-21.4px': 1, '-42.8px': 2, '-64.2px': 3, '-85.6px': 4, '107px': 5,
+            px2pos = {'-0px': 0, '-21.4px': 1, '-42.8px': 2, '-64.2px': 3, '-85.6px': 4, '-107px': 5,
                       '-128.4px': 6, '-149.8px': 7, '-171.2px': 8, '-192.6px': 9}
             pos = px2pos.get(px)
             ## 生成该位数字的值
@@ -163,11 +179,18 @@ class RoomInfoCatching:
         price = int(num_str)
         return price
 
-
+#%%
 # 主程序
 if __name__ == '__main__':
     t = RoomInfoCatching()
     res = t.get_room_info_total()
+
+#%% 解析价格
+import copy
+model_path = r'D:\Learn\学习入口\大项目\爬他妈的\住房问题\自如\data\LR_0818.pickle'
+res1 = copy.deepcopy(res)
+for i in res1:
+    i['price'] = t.get_price(i['price_info'], model_path)
 #%%
 # t = RoomInfoCatching()
 # url = 'https://sh.ziroom.com/z/z2-d310106-r0-p1/?cp=4000TO8000'
@@ -204,40 +227,3 @@ if __name__ == '__main__':
 # locations = b('div.desc>div.location').text()
 # price_info = [num.attr('style') for num in b('div.price span.num').items()]
 # tags = [tag.text() for tag in b('div.tag span').items()]
-#%%
-b = img.crop((0, 0, 30, 28))
-
-from sklearn.cluster import KMeans
-from skimage import morphology
-import pickle
-
-model_path = r'D:\Learn\学习入口\大项目\爬他妈的\住房问题\自如\data\LR_0817.pickle'
-with open(model_path, 'rb') as fr:
-    model = pickle.load(fr)
-    
-
-def convert_PIL(image):
-    image = Image.fromarray(image).convert('L')
-    return image
-
-
-def thresholding(image):
-    predicted = KMeans(n_clusters=2, random_state=9).fit_predict(
-        image.reshape((image.shape[0]*image.shape[1], 1)))
-    image = predicted.reshape((image.shape[0], image.shape[1]))
-    return image
-
-
-def thin(image):
-    image = thresholding(np.array(image))
-    thin_image = morphology.skeletonize(image)
-    return thin_image
-
-
-def predict(model, image):
-    image = thin(image)
-    return model.predict(image.reshape((1, -1)))[0]    
-
-number = predict(model, b.convert('L'))
-
-
